@@ -6,6 +6,7 @@ Production-ready configuration.
 
 import os
 from pathlib import Path
+from urllib.parse import urlsplit, unquote
 from decouple import config, Csv
 
 
@@ -23,6 +24,55 @@ def env_to_bool(value, default=False):
     if normalized in {'0', 'false', 'f', 'no', 'n', 'off', 'prod', 'production', 'release'}:
         return False
     return default
+
+
+def normalize_origin(value):
+    """Origin qiymatidan path/oxirgi slashni olib tashlaydi."""
+    if value is None:
+        return ''
+
+    cleaned = str(value).strip()
+    if not cleaned:
+        return ''
+
+    parsed = urlsplit(cleaned)
+    if parsed.scheme and parsed.netloc:
+        return f'{parsed.scheme}://{parsed.netloc}'
+
+    return cleaned.rstrip('/')
+
+
+def parse_origins(env_key, default=''):
+    """CSV ko'rinishidagi originlarni normalize qilib qaytaradi."""
+    values = config(env_key, default=default, cast=Csv())
+    normalized = [normalize_origin(value) for value in values]
+    return [value for value in dict.fromkeys(normalized) if value]
+
+
+def parse_postgres_url(value):
+    """
+    postgres:// yoki postgresql:// URL ni Django DB dict formatiga o'tkazadi.
+    Noto'g'ri qiymat bo'lsa None qaytaradi.
+    """
+    if value is None:
+        return None
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    parsed = urlsplit(raw)
+    if parsed.scheme not in {'postgres', 'postgresql'} or not parsed.hostname:
+        return None
+
+    return {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': parsed.path.lstrip('/'),
+        'USER': unquote(parsed.username or ''),
+        'PASSWORD': unquote(parsed.password or ''),
+        'HOST': parsed.hostname,
+        'PORT': str(parsed.port or 5432),
+    }
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -114,17 +164,24 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+DATABASE_URL = config('DATABASE_URL', default='').strip()
+DB_HOST_RAW = config('DB_HOST', default='').strip()
 
-DATABASES = {
-    'default': {
+parsed_db = parse_postgres_url(DATABASE_URL) or parse_postgres_url(DB_HOST_RAW)
+
+if parsed_db:
+    default_database = parsed_db
+else:
+    default_database = {
         'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
         'NAME': config('DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')),
         'USER': config('DB_USER', default=''),
         'PASSWORD': config('DB_PASSWORD', default=''),
-        'HOST': config('DB_HOST', default=''),
+        'HOST': DB_HOST_RAW,
         'PORT': config('DB_PORT', default=''),
     }
-}
+
+DATABASES = {'default': default_database}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -157,7 +214,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = []
+PROJECT_STATIC_DIR = os.path.join(BASE_DIR, 'static')
+if os.path.isdir(PROJECT_STATIC_DIR):
+    STATICFILES_DIRS.append(PROJECT_STATIC_DIR)
 
 STORAGES = {
     'default': {
@@ -202,15 +262,17 @@ REST_FRAMEWORK = {
 # CORS SETTINGS
 # ============================================
 
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://localhost:5173', cast=Csv())
+CORS_ALLOWED_ORIGINS = parse_origins(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:3000,http://localhost:5173',
+)
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    value for value in config('CORS_ALLOWED_ORIGIN_REGEXES', default='', cast=Csv()) if value
+    value.strip() for value in config('CORS_ALLOWED_ORIGIN_REGEXES', default='', cast=Csv()) if value.strip()
 ]
-CSRF_TRUSTED_ORIGINS = config(
+CSRF_TRUSTED_ORIGINS = parse_origins(
     'CSRF_TRUSTED_ORIGINS',
     default='http://localhost:3000,http://localhost:5173',
-    cast=Csv(),
 )
 
 # Render/Vercel ajratilgan deploy uchun media serving (kichik loyiha uchun)

@@ -35,7 +35,18 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-pro
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_to_bool(config('DEBUG', default='True'), default=True)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+ALLOWED_HOSTS = [host.strip() for host in config('ALLOWED_HOSTS', default='', cast=Csv()) if host.strip()]
+
+# Render deploy/health-check holatlari uchun lokal hostlarni doim qo'shamiz.
+ALLOWED_HOSTS.extend(['localhost', '127.0.0.1'])
+
+# Render avtomatik beradigan tashqi host (agar mavjud bo'lsa)
+RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='').strip()
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# Dublikatlarni olib tashlash
+ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS))
 
 # Application definition
 

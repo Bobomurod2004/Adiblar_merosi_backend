@@ -7,9 +7,3 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.13
-      - key: SERVE_MEDIA
-        value: "true"
-      - key: MEDIA_ROOT
-        value: /opt/render/project/src/backend/media
-      - key: MEDIA_ROOT_FALLBACKS
-        value: /opt/render/project/src/media,/var/data/media

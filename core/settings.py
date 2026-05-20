@@ -230,8 +230,7 @@ STORAGES = {
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = config('MEDIA_ROOT', default=os.path.join(BASE_DIR, 'media'))
-os.makedirs(MEDIA_ROOT, exist_ok=True)
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
@@ -276,12 +275,8 @@ CSRF_TRUSTED_ORIGINS = parse_origins(
     default='http://localhost:3000,http://localhost:5173',
 )
 
-# Render/Vercel ajratilgan deploy uchun media serving.
-# Productionda default yoqilgan bo'ladi (agar alohida CDN/S3 bo'lmasa).
-SERVE_MEDIA = env_to_bool(
-    config('SERVE_MEDIA', default='True' if not DEBUG else 'False'),
-    default=not DEBUG,
-)
+# Render/Vercel ajratilgan deploy uchun media serving (kichik loyiha uchun)
+SERVE_MEDIA = env_to_bool(config('SERVE_MEDIA', default='False'), default=False)
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

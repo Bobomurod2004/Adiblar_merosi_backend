@@ -2,7 +2,6 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 from .models import UserProfile, Bookmark
-from apps.common.media import safe_media_url
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -36,7 +35,6 @@ class UserSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     """User Profile"""
     user = UserSerializer(read_only=True)
-    avatar = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = UserProfile
@@ -45,9 +43,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'article_count', 'joined_date', 'receive_email_notifications'
         )
         read_only_fields = ('user', 'article_count', 'joined_date')
-
-    def get_avatar(self, obj):
-        return safe_media_url(getattr(obj, 'avatar', None))
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):

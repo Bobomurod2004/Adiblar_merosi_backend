@@ -1,13 +1,11 @@
 from rest_framework import serializers
 from .models import Writer
 from apps.works.models import LiteraryWork
-from apps.common.media import safe_media_url
 
 
 class WriterWorkSerializer(serializers.ModelSerializer):
     """Adibning asarlari uchun qisqa serializer"""
     genre_name = serializers.CharField(source='genre.name', read_only=True)
-    cover_image = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LiteraryWork
@@ -21,22 +19,15 @@ class WriterWorkSerializer(serializers.ModelSerializer):
             'rating',
         )
 
-    def get_cover_image(self, obj):
-        return safe_media_url(getattr(obj, 'cover_image', None))
-
 
 class WriterListSerializer(serializers.ModelSerializer):
     """Writers - List view"""
     full_name = serializers.CharField(read_only=True)
     years_display = serializers.CharField(read_only=True)
-    image = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = Writer
         fields = ('id', 'slug', 'full_name', 'years_display', 'image', 'short_bio', 'is_active')
-
-    def get_image(self, obj):
-        return safe_media_url(getattr(obj, 'image', None))
 
 
 class WriterWriteSerializer(serializers.ModelSerializer):
@@ -87,7 +78,6 @@ class WriterDetailSerializer(serializers.ModelSerializer):
     years_display = serializers.CharField(read_only=True)
     works_count = serializers.SerializerMethodField(read_only=True)
     works = serializers.SerializerMethodField(read_only=True)
-    image = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = Writer
@@ -111,6 +101,3 @@ class WriterDetailSerializer(serializers.ModelSerializer):
         if works is None:
             works = obj.works.filter(is_published=True).select_related('genre').order_by('-publication_year', 'title')
         return WriterWorkSerializer(works, many=True, context=self.context).data
-
-    def get_image(self, obj):
-        return safe_media_url(getattr(obj, 'image', None))

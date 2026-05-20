@@ -1,16 +1,8 @@
-import os
-import tempfile
-from pathlib import Path
-from unittest.mock import patch
-
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.writers.models import Writer
-from apps.works.models import LiteraryGenre, LiteraryWork
 from .models import (
     PracticeOption,
     PracticeQuestion,
@@ -18,8 +10,6 @@ from .models import (
     ScholarshipApplication,
     ScholarshipProgram,
 )
-from .media import safe_media_url
-from .media_views import serve_media_file
 
 User = get_user_model()
 
@@ -157,61 +147,3 @@ class CommonEndpointsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('message', response.data)
         self.assertIn('Muqimiy', response.data['message'])
-
-
-class MediaCompatibilityTests(TestCase):
-    def setUp(self):
-        self.factory = RequestFactory()
-        self.writer = Writer.objects.create(
-            first_name='Abdulla',
-            last_name='Qahhor',
-            short_bio='Qisqa bio',
-            detailed_bio='Batafsil bio',
-            birth_date='1907-09-17',
-            birth_place="Qo'qon",
-            main_genres='Hikoya',
-        )
-        self.genre = LiteraryGenre.objects.create(name='Roman', slug='roman')
-        self.work = LiteraryWork.objects.create(
-            title='Anor',
-            writer=self.writer,
-            genre=self.genre,
-            description='Test tavsif',
-            content='Test matn',
-            publication_year=2012,
-        )
-
-    @override_settings(MEDIA_URL='/media/')
-    def test_safe_media_url_works_with_media_prefixed_name(self):
-        with tempfile.TemporaryDirectory() as media_root:
-            cover_path = Path(media_root) / 'works' / 'covers' / 'anor.webp'
-            cover_path.parent.mkdir(parents=True, exist_ok=True)
-            cover_path.write_bytes(b'anor-image')
-
-            self.work.cover_image = '/media/works/covers/anor.webp'
-            self.work.save(update_fields=['cover_image'])
-
-            with override_settings(MEDIA_ROOT=media_root):
-                url = safe_media_url(self.work.cover_image)
-
-            self.assertEqual(url, '/media/works/covers/anor.webp')
-
-    @override_settings(MEDIA_URL='/media/')
-    def test_safe_media_url_and_media_view_use_fallback_root(self):
-        with tempfile.TemporaryDirectory() as primary_media_root, tempfile.TemporaryDirectory() as fallback_media_root:
-            cover_path = Path(fallback_media_root) / 'works' / 'covers' / 'legacy.webp'
-            cover_path.parent.mkdir(parents=True, exist_ok=True)
-            cover_path.write_bytes(b'legacy-image')
-
-            self.work.cover_image = 'works/covers/legacy.webp'
-            self.work.save(update_fields=['cover_image'])
-
-            with patch.dict(os.environ, {'MEDIA_ROOT_FALLBACKS': fallback_media_root}, clear=False):
-                with override_settings(MEDIA_ROOT=primary_media_root):
-                    url = safe_media_url(self.work.cover_image)
-                    response = serve_media_file(self.factory.get('/media/works/covers/legacy.webp'), 'works/covers/legacy.webp')
-                    content = b''.join(response.streaming_content)
-
-            self.assertEqual(url, '/media/works/covers/legacy.webp')
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(content, b'legacy-image')

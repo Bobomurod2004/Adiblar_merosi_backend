@@ -5,7 +5,6 @@ from django.utils import timezone
 from .models import Tag, Article, ArticleComment
 # pyrefly: ignore [missing-import]
 from apps.writers.serializers import WriterListSerializer
-from apps.common.media import safe_media_url
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -37,8 +36,6 @@ class ArticleListSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
     writer = WriterListSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
-    featured_image = serializers.SerializerMethodField(read_only=True)
-    article_file = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = Article
@@ -49,12 +46,6 @@ class ArticleListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('views_count', 'status', 'published_at')
 
-    def get_featured_image(self, obj):
-        return safe_media_url(getattr(obj, 'featured_image', None))
-
-    def get_article_file(self, obj):
-        return safe_media_url(getattr(obj, 'article_file', None))
-
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
     """Articles - Detail view"""
@@ -62,8 +53,6 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
     writer = WriterListSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     comments = ArticleCommentSerializer(many=True, read_only=True)
-    featured_image = serializers.SerializerMethodField(read_only=True)
-    article_file = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = Article
@@ -73,12 +62,6 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
             'submitted_at', 'published_at', 'created_at', 'updated_at'
         )
         read_only_fields = ('views_count', 'status', 'submitted_at', 'published_at', 'created_at', 'updated_at')
-
-    def get_featured_image(self, obj):
-        return safe_media_url(getattr(obj, 'featured_image', None))
-
-    def get_article_file(self, obj):
-        return safe_media_url(getattr(obj, 'article_file', None))
 
 
 class ArticleCreateSerializer(serializers.ModelSerializer):

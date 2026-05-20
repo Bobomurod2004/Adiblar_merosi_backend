@@ -81,21 +81,3 @@ class ArticleApiTests(APITestCase):
 
         article.refresh_from_db()
         self.assertEqual(article.views_count, 1)
-
-    def test_missing_article_media_urls_return_null(self):
-        article = self.create_article('Media yo‘q maqola', days_ago=0)
-        article.featured_image = 'articles/images/missing.jpg'
-        article.article_file = 'articles/files/missing.pdf'
-        article.save(update_fields=['featured_image', 'article_file'])
-
-        list_response = self.client.get(reverse('articles:article-list'))
-        detail_response = self.client.get(reverse('articles:article-detail', kwargs={'slug': article.slug}))
-
-        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
-
-        list_item = next(item for item in list_response.data['results'] if item['id'] == article.id)
-        self.assertIsNone(list_item['featured_image'])
-        self.assertIsNone(list_item['article_file'])
-        self.assertIsNone(detail_response.data['featured_image'])
-        self.assertIsNone(detail_response.data['article_file'])

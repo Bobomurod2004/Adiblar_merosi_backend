@@ -276,27 +276,51 @@ class DebugMediaView(APIView):
     
     def get(self, request):
         import os
-        search_dirs = [
-            '/opt/render/project/src/media',
-            '/opt/render/project/src/backend/media',
-            '/var/data/media',
-        ]
+        import subprocess
         
         result = {}
-        for directory in search_dirs:
-            if os.path.exists(directory):
-                files = []
-                for root, dirs, filenames in os.walk(directory):
-                    for filename in filenames:
+        
+        # 1. Get disk mounts using df -h
+        try:
+            df_output = subprocess.check_output(['df', '-h'], stderr=subprocess.STDOUT, text=True)
+            result["disk_mounts"] = df_output.splitlines()
+        except Exception as e:
+            result["disk_mounts_error"] = str(e)
+            
+        # 2. List files in /opt/render/project/src recursively to see what's in the workspace
+        workspace = '/opt/render/project/src'
+        workspace_structure = []
+        if os.path.exists(workspace):
+            for root, dirs, filenames in os.walk(workspace):
+                # Don't go deep into node_modules or envs to avoid large output
+                if '.venv' in root or 'node_modules' in root or '.git' in root:
+                    continue
+                for filename in filenames:
+                    full_path = os.path.join(root, filename)
+                    rel_path = os.path.relpath(full_path, workspace)
+                    size_kb = round(os.path.getsize(full_path) / 1024, 2)
+                    workspace_structure.append(f"{rel_path} ({size_kb} KB)")
+            result["workspace_files"] = workspace_structure[:200]  # limit to first 200 files
+        else:
+            result["workspace_files"] = "does not exist"
+            
+        # 3. Search for any jpg or png files on the server (excluding system paths)
+        found_images = []
+        try:
+            for root, dirs, filenames in os.walk('/'):
+                # Exclude standard heavy system directories
+                skip = ['/proc', '/sys', '/dev', '/usr', '/lib', '/var/lib/apt', '/var/cache', '/etc']
+                if any(root.startswith(s) for s in skip):
+                    continue
+                for filename in filenames:
+                    if filename.lower().endswith(('.jpg', '.jpeg', '.png')):
                         full_path = os.path.join(root, filename)
-                        rel_path = os.path.relpath(full_path, directory)
-                        size_kb = round(os.path.getsize(full_path) / 1024, 2)
-                        files.append(f"{rel_path} ({size_kb} KB)")
-                result[directory] = files
-            else:
-                result[directory] = "directory does not exist"
-                
-        # Also print base media settings
+                        found_images.append(full_path)
+            result["found_images"] = found_images[:100]  # limit to first 100 images
+        except Exception as e:
+            result["image_search_error"] = str(e)
+            
+        # 4. Print base settings
         from django.conf import settings
         result["settings"] = {
             "MEDIA_ROOT": getattr(settings, "MEDIA_ROOT", "not set"),

@@ -276,7 +276,7 @@ CSRF_TRUSTED_ORIGINS = parse_origins(
 )
 
 # Render/Vercel ajratilgan deploy uchun media serving (kichik loyiha uchun)
-SERVE_MEDIA = env_to_bool(config('SERVE_MEDIA', default='False'), default=False)
+SERVE_MEDIA = env_to_bool(config('SERVE_MEDIA', default='True'), default=True)
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

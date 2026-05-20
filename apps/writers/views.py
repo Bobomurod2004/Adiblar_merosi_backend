@@ -1,6 +1,7 @@
-from rest_framework import generics, status
-from rest_framework.response import Response
+from django.db.models import Prefetch
+from rest_framework import generics
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from apps.works.models import LiteraryWork
 from .models import Writer
 from .serializers import WriterListSerializer, WriterDetailSerializer
 
@@ -18,7 +19,13 @@ class WriterListView(generics.ListAPIView):
 
 class WriterDetailView(generics.RetrieveAPIView):
     """Get single writer with details"""
-    queryset = Writer.objects.filter(is_active=True)
+    queryset = Writer.objects.filter(is_active=True).prefetch_related(
+        Prefetch(
+            'works',
+            queryset=LiteraryWork.objects.filter(is_published=True).select_related('genre').order_by('-publication_year', 'title'),
+            to_attr='published_works',
+        )
+    )
     serializer_class = WriterDetailSerializer
     lookup_field = 'slug'
     permission_classes = [IsAuthenticatedOrReadOnly]

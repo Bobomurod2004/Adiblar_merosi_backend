@@ -38,11 +38,47 @@ urlpatterns = [
     ])),
 ]
 
+import os
+from django.http import Http404
+
+def serve_media_with_fallback(request, path, document_root=None):
+    """
+    Primary media root dan faylni qidiradi. Topilmasa,
+    Render disk ulanishi mumkin bo'lgan fallback manzillardan qidirib serve qiladi.
+    """
+    try:
+        return serve(request, path, document_root=document_root)
+    except Http404:
+        pass
+
+    # Fallback papkalar ro'yxati
+    fallbacks = [
+        '/opt/render/project/src/media',
+        '/opt/render/project/src/backend/media',
+        '/var/data/media',
+    ]
+    
+    # Environmentdagi fallbacks ni ham qo'shamiz
+    env_fallbacks = os.environ.get('MEDIA_ROOT_FALLBACKS', '')
+    if env_fallbacks:
+        for p in env_fallbacks.split(','):
+            cleaned = p.strip()
+            if cleaned and cleaned not in fallbacks:
+                fallbacks.append(cleaned)
+
+    for fallback_root in fallbacks:
+        if os.path.isdir(fallback_root):
+            full_path = os.path.join(fallback_root, path)
+            if os.path.exists(full_path) and os.path.isfile(full_path):
+                return serve(request, path, document_root=fallback_root)
+
+    raise Http404("Fayl topilmadi.")
+
 # Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 elif getattr(settings, 'SERVE_MEDIA', False):
     urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+        re_path(r'^media/(?P<path>.*)$', serve_media_with_fallback, {'document_root': settings.MEDIA_ROOT}),
     ]

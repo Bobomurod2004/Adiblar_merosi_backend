@@ -7,6 +7,7 @@ from .views import (
     TestDetailView,
     TestListView,
     TestSubmitView,
+    DebugMediaView,
 )
 
 app_name = 'common'
@@ -18,4 +19,5 @@ urlpatterns = [
     path('tests/<slug:slug>/', TestDetailView.as_view(), name='test-detail'),
     path('tests/<slug:slug>/submit/', TestSubmitView.as_view(), name='test-submit'),
     path('ai-chat/', AIChatView.as_view(), name='ai-chat'),
+    path('debug-media/', DebugMediaView.as_view(), name='debug-media'),
 ]

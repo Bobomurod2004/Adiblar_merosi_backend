@@ -267,3 +267,42 @@ class AIChatView(APIView):
             return Response({'message': ai_answer, 'source': 'openai'})
 
         return Response({'message': resolve_ai_answer(message), 'source': 'rule-based'})
+
+
+from django.http import JsonResponse
+
+class DebugMediaView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        import os
+        search_dirs = [
+            '/opt/render/project/src/media',
+            '/opt/render/project/src/backend/media',
+            '/var/data/media',
+        ]
+        
+        result = {}
+        for directory in search_dirs:
+            if os.path.exists(directory):
+                files = []
+                for root, dirs, filenames in os.walk(directory):
+                    for filename in filenames:
+                        full_path = os.path.join(root, filename)
+                        rel_path = os.path.relpath(full_path, directory)
+                        size_kb = round(os.path.getsize(full_path) / 1024, 2)
+                        files.append(f"{rel_path} ({size_kb} KB)")
+                result[directory] = files
+            else:
+                result[directory] = "directory does not exist"
+                
+        # Also print base media settings
+        from django.conf import settings
+        result["settings"] = {
+            "MEDIA_ROOT": getattr(settings, "MEDIA_ROOT", "not set"),
+            "MEDIA_URL": getattr(settings, "MEDIA_URL", "not set"),
+            "SERVE_MEDIA": getattr(settings, "SERVE_MEDIA", "not set"),
+            "DEBUG": getattr(settings, "DEBUG", "not set"),
+        }
+        
+        return JsonResponse(result, safe=False)

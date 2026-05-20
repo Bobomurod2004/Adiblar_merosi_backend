@@ -230,7 +230,7 @@ STORAGES = {
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = config('MEDIA_ROOT', default=os.path.join(BASE_DIR, 'media'))
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # Default primary key field type

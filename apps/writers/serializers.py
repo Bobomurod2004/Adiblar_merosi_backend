@@ -30,6 +30,48 @@ class WriterListSerializer(serializers.ModelSerializer):
         fields = ('id', 'slug', 'full_name', 'years_display', 'image', 'short_bio', 'is_active')
 
 
+class WriterWriteSerializer(serializers.ModelSerializer):
+    """Writers - Create/Update"""
+    slug = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(required=False, default=True)
+
+    class Meta:
+        model = Writer
+        fields = (
+            'id',
+            'slug',
+            'first_name',
+            'last_name',
+            'image',
+            'short_bio',
+            'detailed_bio',
+            'birth_date',
+            'death_date',
+            'birth_place',
+            'death_place',
+            'creative_period_start',
+            'creative_period_end',
+            'main_genres',
+            'influenced_by',
+            'influenced',
+            'legacy',
+            'is_active',
+        )
+
+    def validate_image(self, value):
+        if not value:
+            return value
+
+        max_size = 10 * 1024 * 1024  # 10 MB
+        if value.size > max_size:
+            raise serializers.ValidationError("Rasm hajmi 10 MB dan oshmasligi kerak.")
+        return value
+
+    def create(self, validated_data):
+        validated_data.setdefault('is_active', True)
+        return super().create(validated_data)
+
+
 class WriterDetailSerializer(serializers.ModelSerializer):
     """Writers - Detail view"""
     full_name = serializers.CharField(read_only=True)

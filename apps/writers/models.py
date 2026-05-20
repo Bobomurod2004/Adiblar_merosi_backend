@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
-from django.core.validators import URLValidator
+from uuid import uuid4
 from apps.common.models import BaseModel
 
 
@@ -82,8 +82,34 @@ class Writer(BaseModel):
     
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify("-".join(part for part in [self.first_name, self.last_name] if part))
+            self.slug = self._generate_unique_slug()
         super().save(*args, **kwargs)
+
+    def _generate_unique_slug(self):
+        slug_field = self._meta.get_field('slug')
+        max_length = slug_field.max_length or 50
+
+        base_value = "-".join(part for part in [self.first_name, self.last_name] if part).strip()
+        base_slug = slugify(base_value, allow_unicode=True).strip('-')
+        if not base_slug:
+            base_slug = f"writer-{uuid4().hex[:8]}"
+
+        base_slug = base_slug[:max_length].rstrip('-')
+        candidate = base_slug
+        suffix_index = 2
+
+        queryset = type(self).objects.all()
+        if self.pk:
+            queryset = queryset.exclude(pk=self.pk)
+
+        while queryset.filter(slug=candidate).exists():
+            suffix = f"-{suffix_index}"
+            allowed_len = max_length - len(suffix)
+            trimmed_base = base_slug[:allowed_len].rstrip('-')
+            candidate = f"{trimmed_base}{suffix}" if trimmed_base else f"writer{suffix}"
+            suffix_index += 1
+
+        return candidate
     
     @property
     def full_name(self):

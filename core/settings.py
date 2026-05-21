@@ -232,6 +232,36 @@ STORAGES = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = config('MEDIA_ROOT', default=os.path.join(BASE_DIR, 'media'))
 
+# Supabase Storage (ixtiyoriy, Render uchun tavsiya)
+USE_SUPABASE_STORAGE = env_to_bool(config('USE_SUPABASE_STORAGE', default='False'), default=False)
+SUPABASE_URL = config('SUPABASE_URL', default='').strip()
+SUPABASE_KEY = config('SUPABASE_KEY', default='').strip()
+SUPABASE_SERVICE_ROLE_KEY = config('SUPABASE_SERVICE_ROLE_KEY', default='').strip()
+SUPABASE_BUCKET_NAME = config('SUPABASE_BUCKET_NAME', default='').strip()
+SUPABASE_MEDIA_PREFIX = config('SUPABASE_MEDIA_PREFIX', default='').strip().strip('/')
+SUPABASE_MEDIA_CACHE_CONTROL = config('SUPABASE_MEDIA_CACHE_CONTROL', default='3600')
+SUPABASE_MEDIA_UPSERT = config('SUPABASE_MEDIA_UPSERT', default='false').strip().lower()
+
+if USE_SUPABASE_STORAGE:
+    missing_supabase_vars = [
+        key for key, value in {
+            'SUPABASE_URL': SUPABASE_URL,
+            'SUPABASE_BUCKET_NAME': SUPABASE_BUCKET_NAME,
+        }.items() if not value
+    ]
+    if not (SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY):
+        missing_supabase_vars.append('SUPABASE_KEY (yoki SUPABASE_SERVICE_ROLE_KEY)')
+
+    if missing_supabase_vars:
+        raise ValueError(
+            "USE_SUPABASE_STORAGE=True bo'lsa quyidagi env lar majburiy: "
+            + ", ".join(missing_supabase_vars)
+        )
+
+    STORAGES['default'] = {
+        'BACKEND': 'core.storage_backends.SupabaseStorage',
+    }
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 

@@ -1,0 +1,98 @@
+import mimetypes
+import posixpath
+from typing import Optional
+
+from django.conf import settings
+from django.core.files.base import ContentFile, File
+from django.core.files.storage import Storage
+from django.core.files.utils import validate_file_name
+from django.utils.deconstruct import deconstructible
+from supabase import Client, create_client
+
+
+@deconstructible
+class SupabaseStorage(Storage):
+    """
+    Django media fayllarini Supabase Storage ga saqlash backend'i.
+    """
+
+    def __init__(self):
+        self._client: Optional[Client] = None
+        self.bucket_name = settings.SUPABASE_BUCKET_NAME
+        self.path_prefix = getattr(settings, "SUPABASE_MEDIA_PREFIX", "").strip("/")
+        self.cache_control = str(getattr(settings, "SUPABASE_MEDIA_CACHE_CONTROL", "3600"))
+        self.upsert = str(getattr(settings, "SUPABASE_MEDIA_UPSERT", "false")).lower()
+
+    @property
+    def client(self) -> Client:
+        if self._client is None:
+            url = settings.SUPABASE_URL
+            key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_KEY
+            if not url or not key:
+                raise RuntimeError("SUPABASE_URL va SUPABASE_KEY/SUPABASE_SERVICE_ROLE_KEY majburiy.")
+            self._client = create_client(url, key)
+        return self._client
+
+    @property
+    def bucket(self):
+        return self.client.storage.from_(self.bucket_name)
+
+    def _clean_name(self, name: str) -> str:
+        cleaned = validate_file_name(name, allow_relative_path=True).replace("\\", "/").lstrip("/")
+        if self.path_prefix:
+            return posixpath.join(self.path_prefix, cleaned)
+        return cleaned
+
+    def _content_type_for(self, name: str, content) -> str:
+        content_type = getattr(content, "content_type", None)
+        if content_type:
+            return str(content_type)
+        guessed, _ = mimetypes.guess_type(name)
+        return guessed or "application/octet-stream"
+
+    def _open(self, name: str, mode: str = "rb") -> File:
+        # Supabase API bytes qaytaradi; Django File bilan o'rab qaytaramiz.
+        cleaned = self._clean_name(name)
+        data = self.bucket.download(cleaned)
+        return File(ContentFile(data), name=name)
+
+    def _save(self, name: str, content) -> str:
+        cleaned = self._clean_name(name)
+        upload_source = getattr(content, "file", content)
+        if hasattr(upload_source, "seek"):
+            upload_source.seek(0)
+
+        self.bucket.upload(
+            path=cleaned,
+            file=upload_source,
+            file_options={
+                "cache-control": self.cache_control,
+                "content-type": self._content_type_for(cleaned, content),
+                "upsert": self.upsert,
+            },
+        )
+        return name
+
+    def delete(self, name: str) -> None:
+        if not name:
+            return
+        cleaned = self._clean_name(name)
+        self.bucket.remove([cleaned])
+
+    def exists(self, name: str) -> bool:
+        cleaned = self._clean_name(name)
+        return bool(self.bucket.exists(cleaned))
+
+    def size(self, name: str) -> int:
+        cleaned = self._clean_name(name)
+        info = self.bucket.info(cleaned)
+        metadata = info.get("metadata") or {}
+        raw_size = metadata.get("size") or info.get("size")
+        try:
+            return int(raw_size)
+        except (TypeError, ValueError):
+            return 0
+
+    def url(self, name: str) -> str:
+        cleaned = self._clean_name(name)
+        return self.bucket.get_public_url(cleaned)

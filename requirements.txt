@@ -16,3 +16,4 @@ black==23.12.1
 isort==5.13.2
 gunicorn==21.2.0
 whitenoise==6.6.0
+supabase==2.30.0

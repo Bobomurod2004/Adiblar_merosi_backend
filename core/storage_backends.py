@@ -22,6 +22,8 @@ class SupabaseStorage(Storage):
         self.path_prefix = getattr(settings, "SUPABASE_MEDIA_PREFIX", "").strip("/")
         self.cache_control = str(getattr(settings, "SUPABASE_MEDIA_CACHE_CONTROL", "3600"))
         self.upsert = str(getattr(settings, "SUPABASE_MEDIA_UPSERT", "false")).lower()
+        self.bucket_public = bool(getattr(settings, "SUPABASE_BUCKET_PUBLIC", True))
+        self.signed_url_expires = int(getattr(settings, "SUPABASE_SIGNED_URL_EXPIRES", 3600))
 
     @property
     def client(self) -> Client:
@@ -115,4 +117,8 @@ class SupabaseStorage(Storage):
 
     def url(self, name: str) -> str:
         cleaned = self._clean_name(name)
-        return self.bucket.get_public_url(cleaned)
+        if self.bucket_public:
+            return self.bucket.get_public_url(cleaned)
+
+        signed = self.bucket.create_signed_url(cleaned, self.signed_url_expires)
+        return signed.get("signedURL") or signed.get("signedUrl") or self.bucket.get_public_url(cleaned)

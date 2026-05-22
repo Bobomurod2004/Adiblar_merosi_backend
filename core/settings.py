@@ -241,6 +241,8 @@ SUPABASE_BUCKET_NAME = config('SUPABASE_BUCKET_NAME', default='').strip()
 SUPABASE_MEDIA_PREFIX = config('SUPABASE_MEDIA_PREFIX', default='').strip().strip('/')
 SUPABASE_MEDIA_CACHE_CONTROL = config('SUPABASE_MEDIA_CACHE_CONTROL', default='3600')
 SUPABASE_MEDIA_UPSERT = config('SUPABASE_MEDIA_UPSERT', default='false').strip().lower()
+SUPABASE_BUCKET_PUBLIC = env_to_bool(config('SUPABASE_BUCKET_PUBLIC', default='True'), default=True)
+SUPABASE_SIGNED_URL_EXPIRES = int(config('SUPABASE_SIGNED_URL_EXPIRES', default='3600'))
 
 if USE_SUPABASE_STORAGE:
     missing_supabase_vars = [

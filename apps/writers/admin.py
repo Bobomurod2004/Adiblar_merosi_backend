@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.contrib import messages
 from unfold.admin import ModelAdmin
-from storage3.exceptions import StorageApiError
 from .models import Writer
 
 
@@ -49,7 +48,7 @@ class WriterAdmin(ModelAdmin):
 
         try:
             super().save_model(request, obj, form, change)
-        except (StorageApiError, RuntimeError) as exc:
+        except Exception as exc:
             if "image" not in getattr(form, "changed_data", []):
                 raise
 

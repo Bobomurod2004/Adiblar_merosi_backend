@@ -234,7 +234,7 @@ MEDIA_ROOT = config('MEDIA_ROOT', default=os.path.join(BASE_DIR, 'media'))
 
 # Supabase Storage (ixtiyoriy, Render uchun tavsiya)
 USE_SUPABASE_STORAGE = env_to_bool(config('USE_SUPABASE_STORAGE', default='False'), default=False)
-SUPABASE_URL = config('SUPABASE_URL', default='').strip()
+SUPABASE_URL = normalize_origin(config('SUPABASE_URL', default=''))
 SUPABASE_KEY = config('SUPABASE_KEY', default='').strip()
 SUPABASE_SERVICE_ROLE_KEY = config('SUPABASE_SERVICE_ROLE_KEY', default='').strip()
 SUPABASE_BUCKET_NAME = config('SUPABASE_BUCKET_NAME', default='').strip()

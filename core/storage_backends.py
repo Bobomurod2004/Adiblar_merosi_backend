@@ -1,5 +1,6 @@
 import mimetypes
 import posixpath
+import logging
 from typing import Optional
 
 from django.conf import settings
@@ -8,6 +9,10 @@ from django.core.files.storage import Storage
 from django.core.files.utils import validate_file_name
 from django.utils.deconstruct import deconstructible
 from supabase import Client, create_client
+from storage3.exceptions import StorageApiError
+
+
+logger = logging.getLogger(__name__)
 
 
 @deconstructible
@@ -74,15 +79,50 @@ class SupabaseStorage(Storage):
         if isinstance(payload, str):
             payload = payload.encode("utf-8")
 
-        self.bucket.upload(
-            path=cleaned,
-            file=payload,
-            file_options={
-                "cache-control": self.cache_control,
-                "content-type": self._content_type_for(cleaned, content),
-                "upsert": self.upsert,
-            },
-        )
+        file_options = {
+            "cache-control": self.cache_control,
+            "content-type": self._content_type_for(cleaned, content),
+            "upsert": self.upsert,
+        }
+
+        try:
+            self.bucket.upload(
+                path=cleaned,
+                file=payload,
+                file_options=file_options,
+            )
+        except StorageApiError as exc:
+            status = str(exc.status)
+            message = str(exc.message).lower()
+
+            # Ba'zi holatlarda upload duplicate deb yiqiladi (masalan path band bo'lsa).
+            # Shunda update() bilan almashtirishga urinib ko'ramiz.
+            if status in {"400", "409"} and ("exist" in message or "duplicate" in message):
+                try:
+                    self.bucket.update(
+                        path=cleaned,
+                        file=payload,
+                        file_options={
+                            "cache-control": self.cache_control,
+                            "content-type": self._content_type_for(cleaned, content),
+                        },
+                    )
+                    return name
+                except Exception:
+                    logger.exception("Supabase update fallback ham muvaffaqiyatsiz bo'ldi: bucket=%s path=%s", self.bucket_name, cleaned)
+                    raise
+
+            logger.exception(
+                "Supabase upload xatosi: status=%s code=%s bucket=%s path=%s",
+                exc.status,
+                exc.code,
+                self.bucket_name,
+                cleaned,
+            )
+            raise
+        except Exception:
+            logger.exception("Kutilmagan Supabase upload xatosi: bucket=%s path=%s", self.bucket_name, cleaned)
+            raise
         return name
 
     def delete(self, name: str) -> None:

@@ -240,7 +240,7 @@ SUPABASE_SERVICE_ROLE_KEY = config('SUPABASE_SERVICE_ROLE_KEY', default='').stri
 SUPABASE_BUCKET_NAME = config('SUPABASE_BUCKET_NAME', default='').strip()
 SUPABASE_MEDIA_PREFIX = config('SUPABASE_MEDIA_PREFIX', default='').strip().strip('/')
 SUPABASE_MEDIA_CACHE_CONTROL = config('SUPABASE_MEDIA_CACHE_CONTROL', default='3600')
-SUPABASE_MEDIA_UPSERT = config('SUPABASE_MEDIA_UPSERT', default='false').strip().lower()
+SUPABASE_MEDIA_UPSERT = config('SUPABASE_MEDIA_UPSERT', default='true').strip().lower()
 SUPABASE_BUCKET_PUBLIC = env_to_bool(config('SUPABASE_BUCKET_PUBLIC', default='True'), default=True)
 SUPABASE_SIGNED_URL_EXPIRES = int(config('SUPABASE_SIGNED_URL_EXPIRES', default='3600'))
 
@@ -309,12 +309,48 @@ CSRF_TRUSTED_ORIGINS = parse_origins(
 
 # Render/Vercel ajratilgan deploy uchun media serving (kichik loyiha uchun)
 SERVE_MEDIA = env_to_bool(config('SERVE_MEDIA', default='True'), default=True)
+DEBUG_PROPAGATE_EXCEPTIONS = env_to_bool(
+    config('DEBUG_PROPAGATE_EXCEPTIONS', default='False'),
+    default=False,
+)
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     USE_X_FORWARDED_HOST = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '[%(asctime)s] %(levelname)s %(name)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'core.storage_backends': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+}
 
 # ============================================
 # DJANGO UNFOLD ADMIN

@@ -1,5 +1,7 @@
 from django.contrib import admin
+from django.contrib import messages
 from unfold.admin import ModelAdmin
+from storage3.exceptions import StorageApiError
 from .models import Writer
 
 
@@ -35,10 +37,30 @@ class WriterAdmin(ModelAdmin):
     )
 
     def save_model(self, request, obj, form, change):
-        """Slug ni avtomatik yaratish"""
-        super().save_model(request, obj, form, change)
+        """
+        Supabase storage xatosida admin 500 bermasligi uchun yumshoq fallback:
+        matnli o'zgarishlar saqlanadi, rasm oldingi qiymatda qoladi.
+        """
+        previous_image_name = None
+        if change and obj.pk:
+            previous_image_name = (
+                Writer.objects.filter(pk=obj.pk).values_list("image", flat=True).first() or ""
+            )
+
+        try:
+            super().save_model(request, obj, form, change)
+        except (StorageApiError, RuntimeError) as exc:
+            if "image" not in getattr(form, "changed_data", []):
+                raise
+
+            obj.image = previous_image_name or None
+            super().save_model(request, obj, form, change)
+            self.message_user(
+                request,
+                f"Rasm Supabase'ga yuklanmadi ({exc}). Qolgan o'zgarishlar saqlandi.",
+                level=messages.WARNING,
+            )
 
 
 if Writer not in admin.site._registry:
     admin.site.register(Writer, WriterAdmin)
-

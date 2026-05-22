@@ -3,7 +3,7 @@ services:
     name: adiblar-merosi-backend
     runtime: python
     buildCommand: ./build.sh
-    startCommand: gunicorn core.wsgi:application
+    startCommand: gunicorn core.wsgi:application --access-logfile - --error-logfile - --capture-output --log-level info
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.13

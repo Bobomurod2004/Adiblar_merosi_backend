@@ -62,9 +62,19 @@ class SupabaseStorage(Storage):
         if hasattr(upload_source, "seek"):
             upload_source.seek(0)
 
+        # supabase-py upload() hamma file-like turlarni qabul qilmaydi.
+        # Django upload obyektlarini bytes ga aylantirib yuborish eng barqaror yo'l.
+        if hasattr(upload_source, "read"):
+            payload = upload_source.read()
+        else:
+            payload = content.read()
+
+        if isinstance(payload, str):
+            payload = payload.encode("utf-8")
+
         self.bucket.upload(
             path=cleaned,
-            file=upload_source,
+            file=payload,
             file_options={
                 "cache-control": self.cache_control,
                 "content-type": self._content_type_for(cleaned, content),
@@ -77,11 +87,21 @@ class SupabaseStorage(Storage):
         if not name:
             return
         cleaned = self._clean_name(name)
-        self.bucket.remove([cleaned])
+        try:
+            self.bucket.remove([cleaned])
+        except Exception:
+            # File allaqachon yo'q bo'lsa yoki remote tomonda xatolik bo'lsa
+            # delete() django contracti bo'yicha sokin ishlashi kerak.
+            return
 
     def exists(self, name: str) -> bool:
         cleaned = self._clean_name(name)
-        return bool(self.bucket.exists(cleaned))
+        try:
+            return bool(self.bucket.exists(cleaned))
+        except Exception:
+            # Ba'zi storage policy holatlarida exists() uchun select ruxsati bo'lmaydi.
+            # Bunday vaziyatda nom bo'sh deb hisoblaymiz va uploadni davom ettiramiz.
+            return False
 
     def size(self, name: str) -> int:
         cleaned = self._clean_name(name)
